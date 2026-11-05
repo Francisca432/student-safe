@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudentSafe | Hostel & Roommate Finder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --accent: #f59e0b; 
+            --danger: #ef4444;
+            --danger-bg: #fef2f2;
+            --success: #10b981;
+            --text-dark: #0f172a;
+            --text-light: #64748b;
+            --bg-body: #f8fafc;
+            --white: #ffffff;
+            --border: #e2e8f0;
+            --radius: 14px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background-color: var(--bg-body); color: var(--text-dark); line-height: 1.6; }
+
+        /* Toast Notification */
+        #toast {
+            visibility: hidden; min-width: 250px; background-color: #0f172a; color: #fff; text-align: center;
+            border-radius: 8px; padding: 12px 20px; position: fixed; z-index: 9999; left: 50%; bottom: 30px;
+            transform: translateX(-50%); font-size: 0.9rem; font-weight: 600; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            transition: visibility 0.3s, opacity 0.3s; opacity: 0;
+        }
+        #toast.show { visibility: visible; opacity: 1; }
+
+        /* Modal Popups */
+        .modal-overlay {
+            display: none; position: fixed; z-index: 3000; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(5px); justify-content: center; align-items: center; padding: 1rem;
+        }
+        .modal-box {
+            background: var(--white); padding: 2rem; border-radius: var(--radius); width: 100%; max-width: 400px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); animation: modalPop 0.3s ease-out;
+        }
+        @keyframes modalPop {
+            0% { transform: scale(0.95); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Auth Screen */
+        #authScreen {
+            display: flex; justify-content: center; align-items: center; min-height: 100vh;
+            background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); padding: 1rem;
+        }
+        .auth-card { background: var(--white); padding: 2.5rem; border-radius: var(--radius); width: 100%; max-width: 420px; box-shadow: 0 20px 25px rgba(0,0,0,0.15); }
+        .auth-card h2 { margin-bottom: 0.5rem; font-size: 1.75rem; font-weight: 800; }
+        .auth-card p { color: var(--text-light); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+        /* Dashboards */
+        #studentDashboard, #agentDashboard { display: none; }
+
+        header {
+            background: var(--white); border-bottom: 1px solid var(--border); padding: 1rem 5%;
+            display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; flex-wrap: wrap; gap: 1rem;
+        }
+        .logo { font-size: 1.35rem; font-weight: 800; color: var(--primary); text-decoration: none; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; }
+        .nav-links { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+        .nav-links a { text-decoration: none; color: var(--text-light); font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--primary); }
+        .badge-cart { background: var(--accent); color: var(--white); padding: 0.2rem 0.5rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+        .logout-btn { background: var(--danger); color: var(--white); padding: 0.45rem 1rem; border-radius: 8px; font-weight: 600; border: none; cursor: pointer; font-size: 0.9rem; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; }
+        .scam-warning { background-color: var(--danger-bg); border-left: 5px solid var(--danger); color: #b91c1c; padding: 1.2rem; border-radius: var(--radius); margin-bottom: 2rem; font-size: 0.95rem; }
+
+        .hero { text-align: center; margin-bottom: 2.5rem; }
+        .hero h1 { font-size: clamp(1.8rem, 4vw, 2.3rem); font-weight: 800; margin-bottom: 0.5rem; }
+        .hero p { color: var(--text-light); font-size: clamp(0.95rem, 2vw, 1.05rem); max-width: 650px; margin: 0 auto; }
+
+        .search-bar { display: flex; justify-content: center; gap: 0.75rem; margin-bottom: 2.5rem; }
+        .search-bar input { width: 100%; max-width: 450px; padding: 0.8rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.95rem; outline: none; background: var(--white); }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.75rem; }
+        .card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); transition: transform 0.2s; }
+        .card:hover { transform: translateY(-3px); }
+        .card-img-container { position: relative; height: 200px; background: #cbd5e1; cursor: pointer; }
+        .card-img-container img { width: 100%; height: 100%; object-fit: cover; }
+        .video-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.75); color: var(--white); padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+        .card-body { padding: 1.25rem; }
+        .card-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.25rem; cursor: pointer; color: var(--primary); }
+        .card-location { color: var(--text-light); font-size: 0.85rem; margin-bottom: 0.75rem; }
+        .price-tag { font-size: 1.2rem; font-weight: 800; color: var(--primary); margin-bottom: 1rem; }
+        .agent-box { background: #f1f5f9; padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem; }
+        
+        .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .btn { flex: 1; min-width: 110px; padding: 0.65rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; text-align: center; text-decoration: none; cursor: pointer; border: none; display: inline-block; transition: background 0.2s; }
+        .btn-primary { background-color: var(--primary); color: var(--white); }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border); color: var(--text-dark); }
+        .btn-outline:hover { background: #f1f5f9; }
+
+        .detail-container, .form-container { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; max-width: 800px; margin: 0 auto; }
+        
+        .detail-images { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin: 1rem 0; }
+        .detail-images img { width: 100%; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; transition: transform 0.2s; }
+        .detail-images img:hover { transform: scale(1.02); }
+
+        #imgModal { display: none; position: fixed; z-index: 4000; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; flex-direction: column; padding: 1rem; }
+        #imgModal img { max-width: 90%; max-height: 75vh; border-radius: 8px; object-fit: contain; }
+
+        .review-card, .roommate-item { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem; }
+        .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .stars { color: var(--accent); font-size: 1.1rem; font-weight: bold; }
+        .reviewer-meta { font-size: 0.85rem; color: var(--text-light); margin-bottom: 1rem; }
+        .review-comment { font-size: 0.95rem; background: var(--bg-body); padding: 0.85rem; border-radius: 8px; border-left: 3px solid var(--primary); }
+
+        .form-group { margin-bottom: 1.25rem; }
+        .form-group label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.4rem; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; outline: none; background: var(--white); }
+
+        .checkbox-group { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-light); margin-bottom: 1rem; }
+        .checkbox-group input { width: auto; cursor: pointer; }
+
+        .picture-uploads-box { background: #f8fafc; border: 1px dashed var(--border); border-radius: 10px; padding: 1rem; margin-bottom: 1.25rem; }
+        .picture-uploads-box label { font-size: 0.85rem; color: var(--text-dark); margin-bottom: 0.25rem; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        footer { text-align: center; padding: 2.5rem; color: var(--text-light); font-size: 0.85rem; border-top: 1px solid var(--border); margin-top: 4rem; background: var(--white); }
+    </style>
+</head>
+<body>
+
+    <div id="toast">Notification message here</div>
+
+    <!-- EMAIL VERIFICATION MODAL -->
+    <div id="verifyModal" class="modal-overlay">
+        <div class="modal-box">
+            <h2>✉️ Verify Your Email</h2>
+            <p>We just sent a random verification code to <span id="verifyEmailTarget" style="font-weight:700; color:var(--primary);">email</span>.</p>
+            <div style="background: #f1f5f9; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 1rem;">
+                <span style="font-size: 0.85rem; color: var(--text-light);">Simulated Email Inbox Code:</span><br>
+                <strong id="displayGeneratedCode" style="font-size: 1.5rem; color: var(--primary); letter-spacing: 3px;">----</strong>
+            </div>
+            <div class="form-group">
+                <input type="text" id="verifyInputCode" placeholder="Enter 4-digit code" maxlength="4" style="text-align: center; font-size: 1.5rem; letter-spacing: 5px;">
+            </div>
+            <button onclick="confirmVerificationCode()" class="btn btn-primary" style="width: 100%; padding: 0.8rem;">Verify & Complete Signup</button>
+            <button onclick="closeVerifyModal()" class="btn btn-outline" style="width: 100%; padding: 0.6rem; margin-top: 0.5rem;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- LOGOUT CONFIRMATION MODAL -->
+    <div id="logoutModal" class="modal-overlay">
+        <div class="modal-box">
+            <h2>🔒 Confirm Logout</h2>
+            <p style="margin-bottom: 1.5rem;">Are you sure you want to log out of StudentSafe?</p>
+            <div style="display: flex; gap: 0.75rem;">
+                <button onclick="confirmLogout()" class="btn" style="background: var(--danger); color: white;">Yes, Logout</button>
+                <button onclick="closeLogoutModal()" class="btn btn-outline">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AUTHENTICATION SCREEN -->
+    <div id="authScreen">
+        <div class="auth-card">
+            <h2 id="authTitle">🏠 StudentSafe</h2>
+            <p id="authSubtitle">Sign in with your verified account to continue.</p>
+            
+            <form onsubmit="handleAuthSubmit(event)">
+                <div class="form-group" id="nameGroup" style="display:none;">
+                    <label>Full Name</label>
+                    <input type="text" id="fullName" placeholder="e.g., Sarah Jenkins">
+                </div>
+                <div class="form-group" id="roleGroup" style="display:none;">
+                    <label>I am signing up as:</label>
+                    <select id="userRole">
+                        <option value="student">Looking for a hostel</option>
+                        <option value="agent">Agent / Landlord</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="userEmail" placeholder="student@university.edu.ng" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="userPass" placeholder="••••••••" required>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="rememberMe">
+                    <label for="rememberMe">Remember my login details</label>
+                </div>
+                
+                <button type="submit" id="authBtn" class="btn btn-primary" style="width: 100%; padding: 0.8rem;">Login</button>
+            </form>
+
+            <p style="margin-top: 1.25rem; text-align: center; font-size: 0.85rem;">
+                <span id="authToggleText">Don't have an account?</span> 
+                <a href="javascript:void(0);" onclick="toggleAuthMode()" style="color: var(--primary); font-weight: 700;">Sign Up</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- 1. STUDENT DASHBOARD -->
+    <div id="studentDashboard">
+        <header>
+            <span class="logo" onclick="switchStudentTab('hostels')">🏠 StudentSafe</span>
+            <div class="nav-links">
+                <a onclick="switchStudentTab('hostels')">Hostels</a>
+                <a onclick="switchStudentTab('roommates')">Find Roommate</a>
+                <a onclick="switchStudentTab('reviews')">⭐ Agent Ratings</a>
+                <a onclick="switchStudentTab('saved')">❤️ Saved Cart <span class="badge-cart" id="cartCount">0</span></a>
+                <button class="logout-btn" onclick="openLogoutModal()">Logout</button>
+            </div>
+        </header>
+
+        <div class="container">
+            <div class="scam-warning">
+                <strong>🛡️ Anti-Scam Notice:</strong> Inspect rooms physically before sending money. Always demand an official signed receipt!
+            </div>
+
+            <!-- Hostels Tab -->
+            <div id="studentHostelsTab" class="tab-content active">
+                <div class="hero">
+                    <h1>Verified Student Hostels</h1>
+                    <p>Explore authentic rooms with real pictures, video walkthroughs, and direct agent contacts.</p>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="Search by location (e.g., North Gate, Town)..." onkeyup="filterHostels()">
+                </div>
+                <div class="grid" id="studentHostelGrid">
+                    <div class="card" data-location="north gate">
+                        <div class="card-img-container" onclick="openDetails('Grace Villa Lodge', 'North Gate', '₦180,000 / yr', 'Mr. Tunde', '08012345678', ['https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80', 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80', 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=600&q=80', 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=600&q=80', 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80'], '', 'Spacious self-con with constant water supply, prepaid meter, and 24/7 security guard at North Gate.')">
+                            <img src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80" alt="Hostel">
+                            <div class="video-badge">🎥 Video Available</div>
+                        </div>
+                        <div class="card-body">
+                            <h3 class="card-title" onclick="openDetails('Grace Villa Lodge', 'North Gate', '₦180,000 / yr', 'Mr. Tunde', '08012345678', ['https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80', 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80', 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=600&q=80', 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=600&q=80', 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80'], '', 'Spacious self-con with constant water supply, prepaid meter, and 24/7 security guard at North Gate.')">Grace Villa Lodge</h3>
+                            <p class="card-location">📍 North Gate (5 mins walk)</p>
+                            <div class="price-tag">₦180,000 / yr</div>
+                            <div class="agent-box">
+                                <p><strong>Agent:</strong> Mr. Tunde (⭐ 4.8)</p>
+                                <p><strong>Phone:</strong> 0801-234-5678</p>
+                            </div>
+                            <div class="btn-row">
+                                <a href="tel:08012345678" class="btn btn-outline">Call</a>
+                                <a href="https://wa.me/2348012345678" target="_blank" class="btn btn-primary">WhatsApp</a>
+                            </div>
+                            <button onclick="addToCart('Grace Villa Lodge', 'North Gate', '₦180,000 / yr', 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80')" class="btn btn-outline" style="width: 100%; margin-top: 0.5rem;">❤️ Save to Cart</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detail View Tab -->
+            <div id="studentDetailTab" class="tab-content">
+                <button onclick="switchStudentTab('hostels')" class="btn btn-outline" style="margin-bottom: 1.5rem; max-width: 150px;">← Back</button>
+                <div class="detail-container">
+                    <h1 id="detTitle" style="font-size: 1.8rem; margin-bottom: 0.5rem;">Hostel Name</h1>
+                    <p id="detLocation" style="color: var(--text-light); margin-bottom: 1rem;">Location</p>
+                    <div id="detPrice" class="price-tag">₦0</div>
+                    
+                    <div style="background: var(--bg-body); padding: 1.25rem; border-radius: 8px; margin: 1rem 0; border-left: 4px solid var(--primary);">
+                        <h4 style="margin-bottom: 0.25rem; font-size: 0.95rem; color: var(--primary);">📝 Description from Agent:</h4>
+                        <p id="detDescription" style="font-size: 0.95rem; color: var(--text-dark);">No description provided.</p>
+                    </div>
+
+                    <h3 style="margin-top: 1.5rem; font-size: 1.1rem;">📸 Room Picture Gallery (Click to view full screen & save)</h3>
+                    <div class="detail-images" id="detGallery"></div>
+
+                    <div style="background: var(--bg-body); padding: 1.25rem; border-radius: 8px; margin: 1.5rem 0;">
+                        <h3 style="margin-bottom: 0.5rem;">🎥 30-Sec Video Walkthrough</h3>
+                        <video id="detVideo" controls style="width: 100%; max-height: 280px; border-radius: 8px; background: #000;">
+                            <source src="" type="video/mp4">
+                        </video>
+                    </div>
+
+                    <div class="agent-box" style="font-size: 1rem;">
+                        <p><strong>Agent:</strong> <span id="detAgentName"></span></p>
+                        <p><strong>Phone:</strong> <span id="detAgentPhone"></span></p>
+                    </div>
+
+                    <div class="btn-row" style="margin-top: 1.5rem;">
+                        <a id="detCallBtn" href="#" class="btn btn-outline">Call Agent</a>
+                        <a id="detWaBtn" href="#" class="btn btn-primary" target="_blank">Chat on WhatsApp</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Roommate Tab -->
+            <div id="studentRoommatesTab" class="tab-content">
+                <div class="hero">
+                    <h1>Find a Roommate to Split Bills</h1>
+                    <p>Post what you need or connect with students looking to share apartment costs.</p>
+                </div>
+
+                <div style="max-width: 800px; margin: 0 auto 2.5rem auto; background: var(--white); padding: 1.5rem; border-radius: var(--radius); border: 1px solid var(--border);">
+                    <h3>Post a Roommate Request</h3>
+                    <form onsubmit="handleRoommatePost(event)" style="margin-top: 1rem;">
+                        <div class="form-group">
+                            <label>Your Name & Level / Dept</label>
+                            <input type="text" id="rmName" placeholder="e.g., David (100 Level, Comp Sci)" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Location Preference</label>
+                            <input type="text" id="rmLocation" placeholder="e.g., North Gate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>How many roommates do you need?</label>
+                            <input type="number" id="rmCount" placeholder="e.g., 2 roommates" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Total Rent Amount (₦)</label>
+                            <input type="number" id="rmTotalRent" placeholder="e.g., 250000" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Amount per Person / Split Amount (₦)</label>
+                            <input type="number" id="rmSplitAmount" placeholder="e.g., 125000" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Apartment Description & Preferences</label>
+                            <textarea id="rmDesc" rows="3" placeholder="e.g., Looking for a neat, quiet co-tenant for a 2-bedroom self-con..." required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Your WhatsApp Phone Number</label>
+                            <input type="text" id="rmPhone" placeholder="08012345678" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Publish Roommate Request</button>
+                    </form>
+                </div>
+
+                <div class="grid" id="roommateFeed">
+                    <div class="roommate-item">
+                        <h3>David (100 Level, Computer Science)</h3>
+                        <p class="card-location">📍 North Gate</p>
+                        <p style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>Needs:</strong> 1 roommate</p>
+                        <p style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>Total Rent:</strong> ₦250,000</p>
+                        <p style="font-size: 0.9rem; margin: 0.5rem 0; color: var(--primary);"><strong>Amount per Person:</strong> ₦125,000</p>
+                        <p style="font-size: 0.85rem; margin: 0.5rem 0; background: var(--bg-body); padding: 8px; border-radius: 6px;">"Quiet reader, neat, looking for someone to share a 2-bedroom flat around North Gate."</p>
+                        <a href="https://wa.me/2348011112222?text=Hello%20David,%20I%20saw%20your%20roommate%20request%20on%20StudentSafe." target="_blank" class="btn btn-primary" style="margin-top: 1rem;">Chat with David</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agent Ratings Tab -->
+            <div id="studentReviewsTab" class="tab-content">
+                <div class="hero">
+                    <h1>Agent Trust Ratings</h1>
+                    <p>Rate agents with stars only or add a helpful comment to guide other students.</p>
+                </div>
+
+                <div style="max-width: 800px; margin: 0 auto;">
+                    <div style="background: var(--white); padding: 1.5rem; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 2rem;">
+                        <h3>Rate an Agent</h3>
+                        <form onsubmit="handleReviewSubmit(event)" style="margin-top: 1rem;">
+                            <div class="form-group">
+                                <label>Agent Name</label>
+                                <input type="text" id="reviewAgentName" placeholder="e.g., Mr. Tunde" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Star Rating</label>
+                                <select id="reviewStars" required>
+                                    <option value="⭐⭐⭐⭐⭐">⭐⭐⭐⭐⭐ (5/5 - Extremely Trustworthy)</option>
+                                    <option value="⭐⭐⭐⭐">⭐⭐⭐⭐ (4/5 - Good & Reliable)</option>
+                                    <option value="⭐⭐⭐">⭐⭐⭐ (3/5 - Average)</option>
+                                    <option value="⭐⭐">⭐⭐ (2/5 - Slow / Delays)</option>
+                                    <option value="⭐">⭐ (1/5 - Scam Warning ⚠️)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Comment (Optional)</label>
+                                <textarea id="reviewText" rows="3" placeholder="Leave details or leave blank..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Rating</button>
+                        </form>
+                    </div>
+
+                    <div id="reviewsContainer">
+                        <div class="review-card">
+                            <div class="review-header">
+                                <h3>Mr. Tunde</h3>
+                                <div class="stars">⭐⭐⭐⭐⭐</div>
+                            </div>
+                            <div class="reviewer-meta">Reviewed by Chinedu</div>
+                            <div class="review-comment">"Legit agent, room matched his video!"</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Saved Hostels Page -->
+            <div id="studentSavedTab" class="tab-content">
+                <div class="hero">
+                    <h1>Your Saved Hostels Cart</h1>
+                    <p>Compare your shortlisted apartments and view their pictures anytime.</p>
+                </div>
+                <div class="grid" id="savedCartGrid"></div>
+            </div>
+        </div>
+        <footer><p>&copy; 2026 StudentSafe Hostels</p></footer>
+    </div>
+
+    <!-- 2. AGENT DASHBOARD -->
+    <div id="agentDashboard">
+        <header>
+            <span class="logo">🏠 StudentSafe (Agent Portal)</span>
+            <div class="nav-links">
+                <button class="logout-btn" onclick="openLogoutModal()">Logout</button>
+            </div>
+        </header>
+
+        <div class="container">
+            <div class="form-container">
+                <h2>🏢 Upload & Manage Hostel Listing</h2>
+                <p style="color: var(--text-light); margin-bottom: 1.5rem; font-size: 0.9rem;">Post your apartment details, description, room pictures, and video walkthrough.</p>
+                
+                <form onsubmit="handleAgentUpload(event)">
+                    <div class="form-group">
+                        <label>Hostel Name</label>
+                        <input type="text" id="agTitle" placeholder="e.g., Success Lodge" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Location</label>
+                        <input type="text" id="agLoc" placeholder="e.g., North Gate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Price per Year (₦)</label>
+                        <input type="number" id="agPrice" placeholder="150000" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Your Name & Phone</label>
+                        <input type="text" id="agContact" placeholder="Mr. James - 080XXXXXXXX" required>
+                    </div>
+
+                    <!-- AGENT HOSTEL DESCRIPTION BOX -->
+                    <div class="form-group">
+                        <label>Hostel Description & Details</label>
+                        <textarea id="agDesc" rows="3" placeholder="e.g., Clean self-con room with steady water supply, prepaid light meter, and secure gated compound..." required></textarea>
+                    </div>
+
+                    <!-- 5 PICTURE UPLOAD SLOTS -->
+                    <div class="picture-uploads-box">
+                        <label style="font-weight:700; display:block; margin-bottom: 0.5rem;">📸 Upload Room Pictures (Up to 5 Photos):</label>
+                        
+                        <div class="form-group" style="margin-bottom:0.75rem;">
+                            <label>Picture 1 (Main Cover Photo)</label>
+                            <input type="file" class="agPicInput" accept="image/*" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.75rem;">
+                            <label>Picture 2 (Optional)</label>
+                            <input type="file" class="agPicInput" accept="image/*">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.75rem;">
+                            <label>Picture 3 (Optional)</label>
+                            <input type="file" class="agPicInput" accept="image/*">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.75rem;">
+                            <label>Picture 4 (Optional)</label>
+                            <input type="file" class="agPicInput" accept="image/*">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.75rem;">
+                            <label>Picture 5 (Optional)</label>
+                            <input type="file" class="agPicInput" accept="image/*">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Upload 30-Sec Video Walkthrough (MP4)</label>
+                        <input type="file" id="agVideo" accept="video/mp4" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem;">Publish Listing for Students</button>
+                </form>
+            </div>
+        </div>
+        <footer><p>&copy; 2026 StudentSafe Hostels</p></footer>
+    </div>
+
+    <!-- FULLSCREEN IMAGE VIEW MODAL -->
+    <div id="imgModal">
+        <img id="modalImgSrc" src="" alt="Enlarged View">
+        <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+            <a id="downloadBtn" href="#" download="hostel-photo.jpg" class="btn btn-primary">💾 Save Picture to Phone</a>
+            <button onclick="closeImageModal()" class="btn btn-outline" style="color:white; border-color:white;">Close X</button>
+        </div>
+    </div>
+
+    <script>
+        let isSignUp = false;
+        let savedCart = [];
+        let tempSignupData = null;
+        let generatedVerificationCode = "";
+
+        window.onload = function() {
+            let rememberedEmail = localStorage.getItem("remembered_email");
+            let rememberedPass = localStorage.getItem("remembered_pass");
+            if (rememberedEmail && rememberedPass) {
+                document.getElementById("userEmail").value = rememberedEmail;
+                document.getElementById("userPass").value = rememberedPass;
+                document.getElementById("rememberMe").checked = true;
+            }
+        };
+
+        function showToast(message) {
+            let toast = document.getElementById("toast");
+            toast.innerText = message;
+            toast.className = "show";
+            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+
+        function toggleAuthMode() {
+            isSignUp = !isSignUp;
+            document.getElementById('nameGroup').style.display = isSignUp ? 'block' : 'none';
+            document.getElementById('roleGroup').style.display = isSignUp ? 'block' : 'none';
+            document.getElementById('authTitle').innerText = isSignUp ? '📝 Create Account' : '🏠 StudentSafe';
+            document.getElementById('authSubtitle').innerText = isSignUp ? 'Sign up & verify your email' : 'Sign in with your verified account.';
+            document.getElementById('authBtn').innerText = isSignUp ? 'Continue to Email Verification' : 'Login';
+            document.getElementById('authToggleText').innerText = isSignUp ? 'Already have an account?' : "Don't have an account?";
+            document.querySelector('#authScreen a').innerText = isSignUp ? 'Login' : 'Sign Up';
+        }
+
+        function handleAuthSubmit(event) {
+            event.preventDefault();
+            let email = document.getElementById('userEmail').value.trim();
+            let pass = document.getElementById('userPass').value.trim();
+            let role = document.getElementById('userRole').value;
+            let name = document.getElementById('fullName').value.trim();
+            let remember = document.getElementById('rememberMe').checked;
+
+            if (remember) {
+                localStorage.setItem("remembered_email", email);
+                localStorage.setItem("remembered_pass", pass);
+            } else {
+                localStorage.removeItem("remembered_email");
+                localStorage.removeItem("remembered_pass");
+            }
+
+            if (isSignUp) {
+                if (!name) {
+                    showToast("⚠️ Please enter your full name!");
+                    return;
+                }
+                let existingUser = localStorage.getItem("user_" + email);
+                if (existingUser) {
+                    showToast("⚠️ This email is already registered! Please login.");
+                    return;
+                }
+                
+                generatedVerificationCode = Math.floor(1000 + Math.random() * 9000).toString();
+                document.getElementById('displayGeneratedCode').innerText = generatedVerificationCode;
+
+                tempSignupData = { email, pass, role, name };
+                document.getElementById('verifyEmailTarget').innerText = email;
+                document.getElementById('verifyInputCode').value = "";
+                document.getElementById('verifyModal').style.display = 'flex';
+            } else {
+                let savedDataString = localStorage.getItem("user_" + email);
+                if (!savedDataString) {
+                    showToast("⚠️ Account not found! Please sign up first.");
+                    return;
+                }
+                let savedUser = JSON.parse(savedDataString);
+                if (savedUser.pass !== pass) {
+                    showToast("⚠️ Incorrect password!");
+                    return;
+                }
+
+                showToast("✨ Login successful! Welcome back.");
+                document.getElementById('authScreen').style.display = 'none';
+
+                if (savedUser.role === 'agent') {
+                    document.getElementById('agentDashboard').style.display = 'block';
+                } else {
+                    document.getElementById('studentDashboard').style.display = 'block';
+                }
+            }
+        }
+
+        function confirmVerificationCode() {
+            let inputCode = document.getElementById('verifyInputCode').value.trim();
+            if (inputCode === generatedVerificationCode) {
+                localStorage.setItem("user_" + tempSignupData.email, JSON.stringify(tempSignupData));
+                closeVerifyModal();
+                showToast("🎉 Email verified successfully! You are now logged in.");
+                document.getElementById('authScreen').style.display = 'none';
+
+                if (tempSignupData.role === 'agent') {
+                    document.getElementById('agentDashboard').style.display = 'block';
+                } else {
+                    document.getElementById('studentDashboard').style.display = 'block';
+                }
+            } else {
+                showToast("❌ Incorrect verification code! Access denied.");
+            }
+        }
+
+        function closeVerifyModal() {
+            document.getElementById('verifyModal').style.display = 'none';
+        }
+
+        function openLogoutModal() {
+            document.getElementById('logoutModal').style.display = 'flex';
+        }
+
+        function closeLogoutModal() {
+            document.getElementById('logoutModal').style.display = 'none';
+        }
+
+        function confirmLogout() {
+            closeLogoutModal();
+            document.getElementById('studentDashboard').style.display = 'none';
+            document.getElementById('agentDashboard').style.display = 'none';
+            document.getElementById('authScreen').style.display = 'flex';
+            
+            if (!localStorage.getItem("remembered_email")) {
+                document.getElementById('userEmail').value = "";
+                document.getElementById('userPass').value = "";
+            }
+            showToast("🔒 Logged out securely.");
+        }
+
+        function switchStudentTab(tabName) {
+            document.querySelectorAll('#studentDashboard .tab-content').forEach(el => el.classList.remove('active'));
+            if(tabName === 'hostels') document.getElementById('studentHostelsTab').classList.add('active');
+            if(tabName === 'roommates') document.getElementById('studentRoommatesTab').classList.add('active');
+            if(tabName === 'reviews') document.getElementById('studentReviewsTab').classList.add('active');
+            if(tabName === 'saved') {
+                document.getElementById('studentSavedTab').classList.add('active');
+                renderSavedCart();
+            }
+            if(tabName === 'detail') document.getElementById('studentDetailTab').classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function openDetails(name, location, price, agent, phone, imagesArray, videoUrl, description) {
+            document.getElementById('detTitle').innerText = name;
+            document.getElementById('detLocation').innerText = "📍 " + location;
+            document.getElementById('detPrice').innerText = price;
+            document.getElementById('detAgentName').innerText = agent;
+            document.getElementById('detAgentPhone').innerText = phone;
+            document.getElementById('detDescription').innerText = description ? description : "No description provided by the agent.";
+            
+            let galleryContainer = document.getElementById('detGallery');
+            galleryContainer.innerHTML = "";
+            imagesArray.forEach(imgSrc => {
+                let imgTag = document.createElement('img');
+                imgTag.src = imgSrc;
+                imgTag.onclick = () => openImageModal(imgSrc);
+                galleryContainer.appendChild(imgTag);
+            });
+
+            let videoElement = document.getElementById('detVideo');
+            videoElement.src = videoUrl ? videoUrl : "https://www.w3schools.com/html/mov_bbb.mp4";
+
+            document.getElementById('detCallBtn').href = "tel:" + phone;
+            document.getElementById('detWaBtn').href = "https://wa.me/234" + phone.slice(1) + "?text=Hello%20" + encodeURIComponent(agent) + ",%20I%20want%20to%20inspect%20" + encodeURIComponent(name);
+
+            switchStudentTab('detail');
+        }
+
+        function openImageModal(src) {
+            document.getElementById('modalImgSrc').src = src;
+            document.getElementById('downloadBtn').href = src;
+            document.getElementById('imgModal').style.display = 'flex';
+        }
+
+        function closeImageModal() {
+            document.getElementById('imgModal').style.display = 'none';
+        }
+
+        function handleRoommatePost(event) {
+            event.preventDefault();
+            let name = document.getElementById('rmName').value;
+            let location = document.getElementById('rmLocation').value;
+            let count = document.getElementById('rmCount').value;
+            let totalRent = "₦" + Number(document.getElementById('rmTotalRent').value).toLocaleString();
+            let splitAmount = "₦" + Number(document.getElementById('rmSplitAmount').value).toLocaleString();
+            let desc = document.getElementById('rmDesc').value;
+            let phone = document.getElementById('rmPhone').value;
+
+            let feed = document.getElementById('roommateFeed');
+            let item = document.createElement('div');
+            item.className = 'roommate-item';
+            item.innerHTML = `
+                <h3>${name}</h3>
+                <p class="card-location">📍 ${location}</p>
+                <p style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>Needs:</strong> ${count} roommate(s)</p>
+                <p style="font-size: 0.9rem; margin: 0.5rem 0;"><strong>Total Rent:</strong> ${totalRent}</p>
+                <p style="font-size: 0.9rem; margin: 0.5rem 0; color: var(--primary);"><strong>Amount per Person:</strong> ${splitAmount}</p>
+                <p style="font-size: 0.85rem; margin: 0.5rem 0; background: var(--bg-body); padding: 8px; border-radius: 6px;">"${desc}"</p>
+                <a href="https://wa.me/234${phone.slice(1)}?text=Hello%20${encodeURIComponent(name)},%20I%20saw%20your%20roommate%20request%20on%20StudentSafe." target="_blank" class="btn btn-primary" style="margin-top: 1rem;">Chat with ${name.split(' ')[0]}</a>
+            `;
+            feed.prepend(item);
+            showToast("🚀 Roommate request posted successfully!");
+            event.target.reset();
+        }
+
+        function handleAgentUpload(event) {
+            event.preventDefault();
+            let title = document.getElementById('agTitle').value;
+            let loc = document.getElementById('agLoc').value;
+            let price = "₦" + Number(document.getElementById('agPrice').value).toLocaleString() + " / yr";
+            let contactParts = document.getElementById('agContact').value.split('-');
+            let agentName = contactParts[0] ? contactParts[0].trim() : "Agent";
+            let agentPhone = contactParts[1] ? contactParts[1].trim() : "08012345678";
+            let description = document.getElementById('agDesc').value;
+
+            let inputs = document.querySelectorAll('.agPicInput');
+            let selectedFiles = [];
+
+            inputs.forEach(input => {
+                if (input.files && input.files[0]) {
+                    selectedFiles.push(input.files[0]);
+                }
+            });
+
+            if (selectedFiles.length === 0) {
+                showToast("⚠️ Please select at least Picture 1!");
+                return;
+            }
+
+            let videoFile = document.getElementById('agVideo').files[0];
+            let videoUrl = videoFile ? URL.createObjectURL(videoFile) : "";
+
+            let imageUrls = [];
+            let filesRead = 0;
+
+            selectedFiles.forEach(file => {
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    imageUrls.push(e.target.result);
+                    filesRead++;
+                    if (filesRead === selectedFiles.length) {
+                        publishHostelCard(title, loc, price, agentName, agentPhone, imageUrls, videoUrl, description);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+
+            event.target.reset();
+        }
+
+        function publishHostelCard(title, loc, price, agentName, agentPhone, imageUrls, videoUrl, description) {
+            let grid = document.getElementById('studentHostelGrid');
+            let newCard = document.createElement('div');
+            newCard.className = 'card';
+            newCard.setAttribute('data-location', loc.toLowerCase());
+            
+            let imagesString = JSON.stringify(imageUrls).replace(/"/g, '&quot;');
+            let descString = description.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+            newCard.innerHTML = `
+                <div class="card-img-container" onclick="openDetails('${title}', '${loc}', '${price}', '${agentName}', '${agentPhone}', ${imagesString}, '${videoUrl}', '${descString}')">
+                    <img src="${imageUrls[0]}" alt="Hostel">
+                    <div class="video-badge">🎥 Video Available</div>
+                </div>
+                <div class="card-body">
+                    <h3 class="card-title" onclick="openDetails('${title}', '${loc}', '${price}', '${agentName}', '${agentPhone}', ${imagesString}, '${videoUrl}', '${descString}')">${title}</h3>
+                    <p class="card-location">📍 ${loc}</p>
+                    <div class="price-tag">${price}</div>
+                    <div class="agent-box">
+                        <p><strong>Agent:</strong> ${agentName} (⭐ Verified)</p>
+                        <p><strong>Phone:</strong> ${agentPhone}</p>
+                    </div>
+                    <div class="btn-row">
+                        <a href="tel:${agentPhone}" class="btn btn-outline">Call</a>
+                        <a href="https://wa.me/234${agentPhone.slice(1)}" target="_blank" class="btn btn-primary">WhatsApp</a>
+                    </div>
+                    <button onclick="addToCart('${title}', '${loc}', '${price}', '${imageUrls[0] || ''}')" class="btn btn-outline" style="width: 100%; margin-top: 0.5rem;">❤️ Save to Cart</button>
+                </div>
+            `;
+            grid.prepend(newCard);
+            showToast("✨ Hostel listed successfully! Check student dashboard.");
+        }
+
+        function addToCart(name, location, price, img) {
+            let exists = savedCart.some(item => item.name === name);
+            if(!exists) {
+                savedCart.push({ name, location, price, img });
+                document.getElementById('cartCount').innerText = savedCart.length;
+                showToast("❤️ " + name + " saved to your cart!");
+            } else {
+                showToast("⚠️ This hostel is already in your saved cart.");
+            }
+        }
+
+        function renderSavedCart() {
+            let container = document.getElementById('savedCartGrid');
+            container.innerHTML = "";
+            if(savedCart.length === 0) {
+                container.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-light); padding: 3rem;">Your saved cart is empty. Bookmark hostels to compare them here!</p>`;
+                return;
+            }
+            savedCart.forEach(item => {
+                let card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-img-container"><img src="${item.img}" alt="Saved Hostel"></div>
+                    <div class="card-body">
+                        <h3 class="card-title">${item.name}</h3>
+                        <p class="card-location">📍 ${item.location}</p>
+                        <div class="price-tag">${item.price}</div>
+                        <button onclick="removeFromCart('${item.name}')" class="btn btn-outline" style="width:100%; color:var(--danger); border-color:var(--danger);">Remove from Saved</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function removeFromCart(name) {
+            savedCart = savedCart.filter(item => item.name !== name);
+            document.getElementById('cartCount').innerText = savedCart.length;
+            renderSavedCart();
+            showToast("🗑️ Removed from saved cart.");
+        }
+
+        function filterHostels() {
+            let input = document.getElementById('searchInput').value.toLowerCase();
+            let cards = document.querySelectorAll('#studentHostelGrid .card');
+            cards.forEach(card => {
+                let location = card.getAttribute('data-location');
+                let title = card.querySelector('.card-title').innerText.toLowerCase();
+                if(location.includes(input) || title.includes(input)) {
+                    card.style.display = "block";
+                } else {
+                    card.style.display = "none";
+                }
+            });
+        }
+
+        function handleReviewSubmit(event) {
+            event.preventDefault();
+            let agentName = document.getElementById('reviewAgentName').value;
+            let stars = document.getElementById('reviewStars').value;
+            let text = document.getElementById('reviewText').value.trim();
+
+            let container = document.getElementById('reviewsContainer');
+            let newReview = document.createElement('div');
+            newReview.className = 'review-card';
+            newReview.innerHTML = `
+                <div class="review-header">
+                    <h3>${agentName}</h3>
+                    <div class="stars">${stars}</div>
+                </div>
+                <div class="reviewer-meta">Reviewed by You (Student) • Just now</div>
+                <div class="review-comment">${text !== "" ? text : "<em>(Rating submitted with stars only)</em>"}</div>
+            `;
+            container.prepend(newReview);
+            showToast("⭐ Thank you! Your agent rating has been published.");
+            event.target.reset();
+        }
+    </script>
+</body>
+</html>
